@@ -3,12 +3,11 @@ import matplotlib.pyplot as plt
 from scipy.spatial import distance
 from distfit import distfit
 
-def calc_metrics(pds: list, number_of_responses) -> list:
-    unif = __analyze_unif(pds[0], number_of_responses)
-    # stable = __analyze_stable(pd, number_of_responses)
-    stable = np.ones(25)
-    rel = __analyze_reliability(pds, number_of_responses)
-    uniq = __analyze_uniqueness(pds, number_of_responses)
+def calc_metrics(pds: list, number_of_responses, pd_deviation_sigma) -> list:
+    unif = __analyze_unif(pds[0], number_of_responses, pd_deviation_sigma)
+    stable = __analyze_stable(pds, number_of_responses, pd_deviation_sigma)
+    rel = __analyze_reliability(pds, number_of_responses, pd_deviation_sigma)
+    uniq = __analyze_uniqueness(pds, number_of_responses, pd_deviation_sigma)
 
     return [unif, stable, rel, uniq]
 
@@ -37,11 +36,12 @@ def plot_metrics(metrics: list):
 
 
 
-def __analyze_unif(pd: np.array, number_of_responses: int) -> np.array:
+
+def __analyze_unif(pd: np.array, number_of_responses: int, pd_deviation_sigma: float) -> np.array:
     responses = []
     for _ in range(number_of_responses):
         pairs = __select_pairwise(pd)
-        bit_vector = __calc_bit_vector(pairs)
+        bit_vector = __calc_bit_vector(pairs, pd_deviation_sigma)
         responses.append(bit_vector)
 
     total = np.zeros(len(responses), dtype=np.float32)
@@ -51,40 +51,35 @@ def __analyze_unif(pd: np.array, number_of_responses: int) -> np.array:
 
     return total
 
-def __analyze_stable(pds: np.array, number_of_responses: int) -> np.array:
-    res = []
-    for _ in range():
+def __analyze_stable(pds: list, number_of_responses: int, pd_deviation_sigma: float) -> np.array:
+    res = np.zeros(len(pds), dtype=np.float32)
 
-        responses = []
-        for _ in range(number_of_responses):
-            pairs = __select_pairwise(pd)
-            bit_vector = __calc_bit_vector(pairs)
-            responses.append(bit_vector)
-        res.append(__calc_stable(responses))
+    for i, pd in enumerate(pds):
+        responses = [ __calc_bit_vector(__select_pairwise(pd), pd_deviation_sigma) for _ in range(number_of_responses) ]
+        res[i] = __calc_stable(responses)
 
-def __analyze_reliability(pds: list, number_of_responses: int) -> np.array:
+    return res
+
+def __analyze_reliability(pds: list, number_of_responses: int, pd_deviatio_sigma: float) -> np.array:
     total = np.zeros(len(pds), dtype=np.float32)
 
     for cur_iter, pd in enumerate(pds):
-        responses = []
         pairs = __select_pairwise(pd)
 
-        for i in range(number_of_responses):
-            bit_vector = __calc_bit_vector(pairs)
-            responses.append(bit_vector)
+        responses = [__calc_bit_vector(pairs, pd_deviatio_sigma) for _ in range(number_of_responses)]
 
         total[cur_iter] = __calc_reliability(responses)
 
     return total
 
-def __analyze_uniqueness(pds: list, number_of_responses: int) -> np.array:
+def __analyze_uniqueness(pds: list, number_of_responses: int, pd_deviation_sigma: float) -> np.array:
     total = []
     fpga_num = len(pds)
     for _ in range(number_of_responses):
         fpga_resp = []
-        for cur_iter, pd in enumerate(pds):
+        for pd in pds:
             pairs = __select_pairwise(pd)
-            bit_vector = __calc_bit_vector(pairs)
+            bit_vector = __calc_bit_vector(pairs, pd_deviation_sigma)
             fpga_resp.append(bit_vector)
 
         s = 0
@@ -99,21 +94,21 @@ def __analyze_uniqueness(pds: list, number_of_responses: int) -> np.array:
 
 
 
+
 def __select_pairwise(input_array: np.array) -> np.array:
     x = np.array(np.meshgrid(input_array, input_array)).T.reshape(-1, 2)
     y = np.delete(x, np.arange(0, len(input_array)**2, len(input_array)+1), axis=0)
     return y
 
-def __calc_bit_vector(pairs: np.array) -> np.array:
+def __calc_bit_vector(pairs: np.array, pd_deviation_sigma: int) -> np.array:
     kek = np.hsplit(pairs, 2)
-    kek0 = kek[0].flatten() * __get_deviation(len(kek[0]))
-    kek1 = kek[1].flatten() * __get_deviation(len(kek[0]))
+    kek0 = kek[0].flatten() * __get_deviation(len(kek[0]), pd_deviation_sigma)
+    kek1 = kek[1].flatten() * __get_deviation(len(kek[0]), pd_deviation_sigma)
     result = (kek0 > kek1).astype(int)
     return result
 
-def __get_deviation(size: int) -> np.array:
-    PD_DEVIATION_SIGMA = 0.05
-    return 1 + np.random.normal(0, PD_DEVIATION_SIGMA, size=size)
+def __get_deviation(size: int, pd_deviation_sigma: float) -> np.array:
+    return 1 + np.random.normal(0, pd_deviation_sigma, size=size)
 
 
 
@@ -133,10 +128,7 @@ def __calc_stable(responses: list) -> float:
     mask = (s != 0) & (s != len(responses))
     unique, counts = np.unique(mask, return_counts=True)
 
-    if len(counts) == 1:
-        return 1
-    else:
-        return 1 - counts[1] / len(responses)
+    return 1 if len(counts) == 1 else 1 - counts[1] / len(s)
 
 def __calc_reliability(responses: list) -> float:
     ref = responses[0]
@@ -147,4 +139,3 @@ def __calc_reliability(responses: list) -> float:
         s += distance.hamming(responses[i], ref)
 
     return 1 - 1 / n * s
-
