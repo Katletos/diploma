@@ -132,10 +132,10 @@ def __calc_stable(responses: list) -> float:
 
 def __calc_reliability(responses: list) -> float:
     ref = responses[0]
-    n = len(responses)
     s = 0
+    m = len(responses)
 
-    for i in range(1, len(responses)):
+    for i in range(1, m):
         s += distance.hamming(responses[i], ref)
 
-    return 1 - 1 / n * s
+    return 1 - 1 / m * s
