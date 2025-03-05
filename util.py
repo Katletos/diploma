@@ -2,7 +2,7 @@ import numpy as np
 
 def read_pd_from_file_limited(filename: str) -> np.array:
     with open(filename, 'r') as file:
-        lines = file.readlines()[:100]
+        lines = file.readlines()[:200]
         result = np.zeros(len(lines), dtype=np.float32)
 
         for i, l in enumerate(lines):

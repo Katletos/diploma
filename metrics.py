@@ -57,6 +57,7 @@ def __analyze_stable(pds: list, number_of_responses: int, pd_deviation_sigma: fl
     for i, pd in enumerate(pds):
         responses = [ __calc_bit_vector(__select_pairwise(pd), pd_deviation_sigma) for _ in range(number_of_responses) ]
         res[i] = __calc_stable(responses)
+        print(res[i])
 
     return res
 
@@ -65,32 +66,20 @@ def __analyze_reliability(pds: list, number_of_responses: int, pd_deviatio_sigma
 
     for cur_iter, pd in enumerate(pds):
         pairs = __select_pairwise(pd)
-
         responses = [__calc_bit_vector(pairs, pd_deviatio_sigma) for _ in range(number_of_responses)]
-
         total[cur_iter] = __calc_reliability(responses)
 
     return total
 
 def __analyze_uniqueness(pds: list, number_of_responses: int, pd_deviation_sigma: float) -> np.array:
     total = []
-    fpga_num = len(pds)
     for _ in range(number_of_responses):
-        fpga_resp = []
-        for pd in pds:
-            pairs = __select_pairwise(pd)
-            bit_vector = __calc_bit_vector(pairs, pd_deviation_sigma)
-            fpga_resp.append(bit_vector)
-
-        s = 0
-        for i in range(0, fpga_num - 1):
-            for j in range(i + 1, fpga_num):
-                s += distance.hamming(fpga_resp[i], fpga_resp[j])
-
-        result = 2 / (fpga_num * (fpga_num - 1)) * s 
+        fpga_resps= [ __calc_bit_vector(__select_pairwise(pd), pd_deviation_sigma) for pd in pds ]
+        result = __calc_uniquness(fpga_resps)
         total.append(result)
 
     return np.array(total)
+
 
 
 
@@ -124,11 +113,16 @@ def __calc_uniformity(bit_vector: np.array) -> float:
     return uniformity
 
 def __calc_stable(responses: list) -> float:
+    print(responses)
     s = np.add.reduce(responses)
+    print(s)
     mask = (s != 0) & (s != len(responses))
+    print(mask)
+    # mask = s != len(responses)
     unique, counts = np.unique(mask, return_counts=True)
-
-    return 1 if len(counts) == 1 else 1 - counts[1] / len(s)
+    print(unique)
+    print(counts)
+    return 0 if len(counts) == 1 else 1 - counts[0] / len(s)
 
 def __calc_reliability(responses: list) -> float:
     ref = responses[0]
@@ -139,3 +133,12 @@ def __calc_reliability(responses: list) -> float:
         s += distance.hamming(responses[i], ref)
 
     return 1 - 1 / m * s
+
+def __calc_uniquness(fpga_resps: list) -> float:
+    n = len(fpga_resps)
+    s = 0
+    for i in range(0, n - 1):
+        for j in range(i + 1, n):
+            s += distance.hamming(fpga_resps[i], fpga_resps[j])
+
+    return 2 / (n * (n - 1)) * s 
