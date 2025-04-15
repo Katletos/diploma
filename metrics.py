@@ -1,7 +1,10 @@
+from matplotlib import ticker
+from matplotlib.ticker import FuncFormatter, ScalarFormatter
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial import distance
-from distfit import distfit
+import seaborn as sns
+from scipy.stats import norm
 
 def calc_metrics(pds: list, number_of_responses, pd_deviation_sigma) -> list:
     unif = __analyze_unif(pds[0], number_of_responses, pd_deviation_sigma)
@@ -11,28 +14,41 @@ def calc_metrics(pds: list, number_of_responses, pd_deviation_sigma) -> list:
 
     return [unif, stable, rel, uniq]
 
+def format_func(value, tick_number):
+    return f'{value:g}'  # Убирает научную нотацию
+
 def plot_metrics(metrics: list):
     figure, axs = plt.subplots(2,2)
     figure.set_size_inches(20, 15)
     axs = axs.ravel()
     
-    dfit = distfit(distr="norm")
+    for i in range(len(metrics)):
+        x = metrics[i]
+        sns.histplot(x, bins=20, kde=False, stat='density', ax=axs[i], 
+                    color="green", edgecolor='black')
+        
+        # Нормальное распределение
+        mean = np.mean(x)
+        std_dev = np.std(x)
+        x_values = np.linspace(mean - 4 * std_dev, mean + 4 * std_dev, 100)
+        p = norm.pdf(x_values, mean, std_dev)
+        
+        # Нанесение кривой нормального распределения
+        axs[i].plot(x_values, p, color='red', linewidth=2, label='Normal distribution')
+        
+        # Настройки графика
+        fontsize=26
+        axs[i].set_title(["Uniformity", "Stable", "Reliability","Uniqueness"][i], fontsize=18)
+        axs[i].set_xlabel('Values', fontsize=fontsize)
+        axs[i].set_ylabel('Probability density', fontsize=fontsize)
+        axs[i].tick_params(axis='both', labelsize=16)
+        axs[i].yaxis.set_major_formatter(FuncFormatter(format_func))
+        axs[i].xaxis.set_major_formatter(FuncFormatter(format_func))
+        axs[i].grid()
+        axs[i].legend(fontsize=fontsize)
 
-    dfit.fit_transform(metrics[0])
-    dfit.plot(ax=axs[0])
-    axs[0].set_title("Uniformity")
-
-    dfit.fit_transform(metrics[1])
-    dfit.plot(ax=axs[1])
-    axs[1].set_title("Stable")
-
-    dfit.fit_transform(metrics[2])
-    dfit.plot(ax=axs[2])
-    axs[2].set_title("Reliability")
-
-    dfit.fit_transform(metrics[3])
-    dfit.plot(ax=axs[3])
-    axs[3].set_title("Uniqueness")
+    plt.tight_layout()
+    plt.show()
 
 
 
